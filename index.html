@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>City Names Dashboard</title>
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+</head>
+
+<body class="bg-gray-100 p-8">
+
+	<div class="max-w-2xl mx-auto bg-white p-6 rounded-md shadow-md mb-4">
+		<h1 class="text-2xl font-bold mb-4">City Names Dashboard</h1>
+
+		<!-- Button to fetch and display city names -->
+		<button id="fetchCities" class="bg-blue-500 hover:bg-blue-700 text-white px-4 py-2 rounded-md">
+      Fetch City Names
+    </button>
+
+    <!-- Buttons for processing city names -->
+    <div class="mt-4">
+      <button id="processWithWebWorker" class="bg-green-500 hover:bg-green-700 text-white px-4 py-2 rounded-md mr-2">
+        Process with Web Worker
+      </button>
+      <button id="processWithoutWebWorker" class="bg-yellow-500 hover:bg-yellow-700 text-white px-4 py-2 rounded-md">
+        Process without Web Worker
+      </button>
+    </div>
+
+    <!-- Loading indicator -->
+    <div id="loadingIndicator" class="mt-4 text-gray-500 hidden">
+      Loading<span id="loadingDots"></span>
+    </div>
+
+    <!-- Table to display city names -->
+    <table id="cityTable" class="table-auto w-full mt-4">
+      <thead>
+        <tr>
+          <th class="px-4 py-2 bg-gray-200 border">City Names</th>
+        </tr>
+      </thead>
+      <tbody id="cityTableBody"></tbody>
+    </table>
+  </div>
+
+  <script>
+    document.getElementById('fetchCities').addEventListener('click', fetchData);
+    document.getElementById('processWithWebWorker').addEventListener('click', processDataWithWebWorker);
+    document.getElementById('processWithoutWebWorker').addEventListener('click', processDataWithoutWebWorker);
+
+    function fetchData() {
+  showLoading();
+  fetchCityData('fetch_city_names.php', processAndDisplayCityNames);
+}
+
+function fetchCityData(url, callback) {
+  fetch(url)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      return response.text(); // Assuming PHP script returns a text representation of the array
+    })
+    .then(data => {
+      hideLoading();
+      const cityNames = data.split(','); // Splitting the string into an array (assuming comma-separated)
+      callback(cityNames);
+    })
+    .catch(error => {
+      hideLoading();
+      console.error('Error fetching data:', error);
+      alert('Error fetching data. Please try again.');
+    });
+}
+
+
+    function processAndDisplayCityNames(cityNames) {
+      showLoading();
+      const worker = new Worker('worker.js');
+
+      worker.addEventListener('message', function (event) {
+        hideLoading();
+        displayCityNames(event.data);
+        worker.terminate();
+      });
+
+      worker.addEventListener('error', function (error) {
+        hideLoading();
+        console.error('Web Worker error:', error);
+        worker.terminate();
+      });
+
+      worker.postMessage(cityNames);
+    }
+
+    function displayCityNames(cityNames) {
+      const cityTableBody = document.getElementById('cityTableBody');
+      cityTableBody.innerHTML = '';
+
+      cityNames.forEach(function (city) {
+    if (city === '') {
+        return; // Skip this iteration if city name is empty
+    }
+    // Remove first and last character of city name
+    const trimmedCity = city.substring(1, city.length - 1);
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.textContent = trimmedCity;
+    row.appendChild(cell);
+    cityTableBody.appendChild(row);
+});
+
+
+    }
+
+    function processDataWithWebWorker() {
+      fetchData();
+    }
+
+    function processDataWithoutWebWorker() {
+      showLoading();
+      const cityNames = getCityNames();
+      const sortedCityNames = cityNames.sort();
+      displayCityNames(sortedCityNames);
+      hideLoading();
+    }
+
+    function getCityNames() {
+      const rows = document.querySelectorAll('#cityTableBody td');
+      const cityNames = Array.from(rows).map(td => td.textContent);
+      return cityNames;
+    }
+
+    function showLoading() {
+      document.getElementById('loadingIndicator').classList.remove('hidden');
+      animateLoadingDots();
+    }
+
+    function hideLoading() {
+      document.getElementById('loadingIndicator').classList.add('hidden');
+    }
+
+    function animateLoadingDots() {
+      const dotsElement = document.getElementById('loadingDots');
+      let dots = 0;
+
+      setInterval(() => {
+        dots = (dots + 1) % 4;
+        dotsElement.textContent = '.'.repeat(dots);
+      }, 500);
+    }
+  </script>
+
+</body>
+
+</html>
